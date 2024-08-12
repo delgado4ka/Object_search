@@ -1,0 +1,304 @@
+from ultralytics import YOLO
+import numpy as np
+import torch
+import cv2
+import torchvision.transforms as transforms
+import torchvision.models as models
+from PIL import Image
+
+im_path = "files/luke_outdoor.webp"
+model = YOLO('models/yolov8L.pt')
+
+
+video_path = "files/test_cars.mp4"
+cap = cv2.VideoCapture(video_path)
+
+# Loop through the video frames
+while cap.isOpened():
+    # Read a frame from the video
+    success, frame = cap.read()
+
+    if success:
+        # Run YOLOv8 tracking on the frame, persisting tracks between frames
+        results = model.track(frame, persist=True, classes=[2], tracker="bytetrack.yaml")
+        print(results[0].boxes.data)
+        # Visualize the results on the frame
+        annotated_frame = results[0].plot()
+
+        # Display the annotated frame
+        cv2.imshow("YOLOv8 Tracking", annotated_frame)
+
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+    else:
+        # Break the loop if the end of the video is reached
+        break
+
+# Release the video capture object and close the display window
+cap.release()
+cv2.destroyAllWindows()
+
+
+import sqlite3
+
+# https://www.gradio.app
+
+conn = sqlite3.connect("test.db")
+c = conn.cursor()
+
+# c.execute("""CREATE table employees(
+#    first text,
+#    last text,
+#    pay integer
+#    )""")
+
+# c.execute("INSERT INTO employees VALUES (?, ?, ?)",
+#          ("Johnny", "Princeton", 30000))
+# c.execute("INSERT INTO employees VALUES (:first, :last, :pay)",
+#          {"first": "James", "last": "Dean", "pay": 80000})
+
+# c.execute("DELETE FROM employees WHERE last=:last1 or last=:last2",
+#         {"last1":"Princeton", "last2":"Dean"})
+# conn.commit()
+
+def insert_emp(first, last, pay):
+    with conn:
+        c.execute("INSERT INTO employees VALUES (:first, :last, :pay)",
+                  {"first":first, "last":last, "pay":pay})
+
+def get_emp_by_name(name):
+    c.execute("SELECT * FROM employees WHERE last=:name or first=:name",
+              {"name": name})
+    return c.fetchall()
+
+def update_pay(first, last, pay):
+    with conn:
+        c.execute("UPDATE employees SET pay=:pay WHERE first=:first AND last=:last",
+                  {"pay": pay, "first": first, "last": last})
+
+def remove_emp(first, last):
+    with conn:
+        c.execute("DELETE FROM employees WHERE first=:first and last=:last",
+                  {"first":first, "last": last})
+
+
+data = (
+    {"first":"Moose", "last": "Grayson", "pay":57000},
+    {"first":"Jenny", "last": "Peterson", "pay":65000}
+)
+
+
+# c.executemany("""INSERT INTO employees VALUES (:first, :last, :pay)""", data)
+
+# conn.rollback()  # cancels all uncommitted transactions
+conn.commit()
+
+
+c.execute("""
+    SELECT * FROM employees ORDER BY pay
+""")
+
+print(c.lastrowid)
+print(c.fetchall())
+
+conn.close()
+
+
+
+import sqlite3
+
+
+class Point:
+    def __init__(self, x, y):
+        self.x, self.y = x, y
+
+    def __repr__(self):
+        return f"Point({self.x}, {self.y})"
+
+def adapt_point(point):
+    return f"{point.x};{point.y}"
+
+def convert_point(s):
+    x, y = list(map(float, s.split(b";")))
+    return Point(x, y)
+
+
+# Register the adapter and converter
+sqlite3.register_adapter(Point, adapt_point)
+sqlite3.register_converter("point", convert_point)
+
+# 1) Parse using declared types
+p = Point(4.0, -3.2)
+con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_DECLTYPES)
+cur = con.execute("CREATE TABLE test(p point)")
+
+cur.execute("INSERT INTO test(p) VALUES(?)", (p,))
+cur.execute("SELECT p FROM test")
+print("with declared types:", cur.fetchone()[0])
+cur.close()
+con.close()
+
+# 2) Parse using column names
+con = sqlite3.connect(":memory:", detect_types=sqlite3.PARSE_COLNAMES)
+cur = con.execute("CREATE TABLE test(p)")
+
+cur.execute("INSERT INTO test(p) VALUES(?)", (p,))
+cur.execute('SELECT p AS "p [point]" FROM test')
+print("with column names:", cur.fetchone()[0])
+cur.close()
+con.close()
+
+
+
+
+from feature_extract import FeatureExtract
+
+
+from ultralytics import YOLO
+import numpy as np
+import torch
+import cv2
+import torchvision.transforms as transforms
+import torchvision.models as models
+from PIL import Image
+
+im_path = "files/luke_outdoor.webp"
+model = YOLO('models/yolov8L.pt')
+extractor = FeatureExtract()
+
+video_path = "files/test_cars.mp4"
+cap = cv2.VideoCapture(video_path)
+
+# Loop through the video frames
+while cap.isOpened():
+    # Read a frame from the video
+    success, frame = cap.read()
+
+    if success:
+        # Run YOLOv8 tracking on the frame, persisting tracks between frames
+        results = model.track(frame, persist=True, classes=[2], tracker="bytetrack.yaml")
+        img_array = results[0].orig_img
+        print(results[0].boxes.data[0][0])
+        x1, y1, x2, y2 = np.int32(results[0].boxes.data[0][:4])
+        subset_array = img_array[y1:y2, x1:x2]
+        print("features:", extractor.extract_vector(subset_array))
+
+        # Visualize the results on the frame
+        annotated_frame = results[0].plot()
+
+        # Display the annotated frame
+        cv2.imshow("YOLOv8 Tracking", annotated_frame)
+
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+    else:
+        # Break the loop if the end of the video is reached
+        break
+
+# Release the video capture object and close the display window
+cap.release()
+cv2.destroyAllWindows()
+
+
+
+
+    """for row in cur:
+        # each row contains obj_id, bbox as str-str-str and frame_ids as str-str-str
+        obj_id = row[0]
+        bbox_str = row[1].split("-")
+        bbox = to_int(bbox_str)
+        x1, y1, x2, y2 = bbox
+        frame_ids_str = row[2].split("-")
+        frame_ids = to_int(frame_ids_str)
+        frame_bytes = db.query_frames(frame_id=frame_ids[0])
+        if obj_id == 0:
+            frame_val = from_bytes(frame_bytes, target_shape)
+        else:
+            frame_val = from_bytes(frame_bytes, FRAME_SHAPE)
+        obj_array = frame_val[y1:y2, x1:x2]
+
+        # extract features
+        feature = feature_extractor.extract_vector(obj_array)
+        db.insert_to_features(obj_id, feature, 99)
+
+        FEATURES_SHAPE = feature.shape
+    """
+
+    # extract features
+    # query obj values from db
+    # # use first frame_id to extract frame_values from frames table
+    # # crop the area containing the object using bbox
+
+    """
+    # TODO compare features
+    f_comparison = feature_comparison.FeatureComparison(threshold=0.8)
+    temp = db.query_features()
+    all_features = []
+    for f in temp:
+        all_features.append(from_bytes(f[1], FEATURES_SHAPE))
+
+    features = np.array(all_features)
+    target_feature = features[0]
+    all_features_float = features[1:]
+
+    del all_features
+    del temp
+    del features
+
+    similarity = f_comparison.cosine_similarity_matrix(target_feature, all_features_float)
+    np.savetxt('similarity_scores.txt', similarity, fmt='%.4f', delimiter=',')
+
+    top_similarity = f_comparison.get_top_similar(5, similarity)
+    plot_imgs(top_similarity.keys(), top_similarity.values())
+"""
+
+# main()
+
+
+"""FEATURES_SHAPE = [1, 2048]
+database_name = "test"
+db = DatabaseManager(database_name)
+temp = db.query_features()
+all_features = []
+for f in temp:
+    all_features.append(from_bytes(f[1], FEATURES_SHAPE))
+
+features = np.array(all_features)
+target_feature = features[0].reshape(2048)
+all_features_float = features[1:].reshape(11, 2048)
+print(all_features_float.shape)
+print(target_feature.shape)
+
+f_comparison = feature_comparison.FeatureComparison(threshold=0.8)
+
+similarity = f_comparison.cosine_similarity_matrix(target_feature, all_features_float)
+np.savetxt('similarity_scores.txt', similarity, fmt='%.4f', delimiter=',')
+"""
+
+"""database_name = "test"
+db = DatabaseManager(database_name)
+objects = db.query_objects()[3]
+print(objects)
+bbox = objects[1]
+frames = objects[2][0]
+cap = cv2.VideoCapture(input_video_path)
+
+while cap.isOpened():
+    success, frame = cap.read()
+
+    if success:
+        # TODO Visualize the results on the frame
+        color = (0, 255, 0)
+        thickness = 2
+        x1, y1, x2, y2 = bbox
+        annotated_frame = cv2.rectangle(frame, (x1, y1), (x2, y2), color, thickness)
+
+        # TODO Display the annotated frame
+        cv2.imshow("YOLOv8 Tracking", annotated_frame)
+
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
+"""

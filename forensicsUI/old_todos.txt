@@ -1,0 +1,21 @@
+# todo iterate over detection results, save index, bbox each time object is seen
+#   initiate object only the first time it is seen
+#   make sure the object is sent to feature extraction logic only when detection confidence is high
+#   to make sure comparison results will be valid
+#   visualize every objects' bbox, id and similarity score for each frame
+
+
+"""
+1. detect image object ✅
+2. detect objects in videos (only classes found in image) ✅
+3. in the meantime, show detection results ✅
+4. also, save the detections to a database ✅
+5. after all is detected, extract features ✅
+6. rank all extracted features ✅
+7 show results ✅
+"""
+
+# done 3. extract objects features every few frames, saving the best result
+# done 4. add performance and efficiency modes.
+#  Performance: extract objects and compare them every 2-3 frames.
+#  Efficiency: only extract and compare the object once.
